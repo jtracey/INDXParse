@@ -301,7 +301,13 @@ class NTATTR_STANDARD_INDEX_HEADER(Block):
     def entry_allocated_size(self):
         return self.unpack_dword(0x20)
 
-    def entries(self):
+    def entries_of_security_index(self):
+        """
+        A generator for INDX blocks of a security index file.
+        """
+        yield 0 #FIXME
+
+    def entries_of_directory(self):
         """
         A generator that returns each INDX entry associated with this header.
         """
@@ -586,7 +592,7 @@ if __name__ == '__main__':
     off = 0
     while off < len(b):
         h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
-        for e in h.entries():
+        for e in h.entries_of_directory():
             if do_csv:
                 try:
                     print entry_csv(e)
