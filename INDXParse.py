@@ -305,7 +305,9 @@ class NTATTR_STANDARD_INDEX_HEADER(Block):
         """
         A generator for INDX blocks of a security index file.
         """
-        yield 0 #FIXME
+
+        e = NTATTR_SDH_INDEX_ENTRY(self._buf, self.entry_offset(), self)
+        yield e #FIXME
 
     def entries_of_directory(self):
         """
@@ -358,6 +360,54 @@ class NTATTR_STANDARD_INDEX_HEADER(Block):
         except struct.error:
             debug("Slack entry parsing overran buffer.")
             pass
+
+class NTATTR_SDH_INDEX_ENTRY(Block):
+#Security Descriptor Hash ($SDH) Index
+# values accodring to NTFSdoc
+# empirically, these offsets should all have 0x40 added to them
+
+# 0x00  unsigned short  offsetToData=0x18;
+# 0x02  unsigned short  sizeOfData=0x14;
+# 0x04  BYTE            padding[4]=0x00;
+# 0x08  unsigned short  sizeOfIndexEntry=0x30;
+# 0x0A  unsigned short  sizeOfIndexKey=0x08;
+# 0x0C  unsigned short  flags;
+# 0x0E  BYTE            padding[2]=0x00;
+
+# 0x10  DWORD           SecurityDescriptorHashKey;
+# 0x14  DWORD           SecurityIDKey;
+
+# 0x18  DWORD           SecurityDescriptorHashData;
+# 0x1C  DWORD           SecurityIDData;
+# 0x20  LONGLONG        SDSSecurityDescriptorOffset
+# 0x28  unsigned        SDSSecurityDescriptorSize
+# 0x2C  padding ending in 4 bytes of unicode: "II"
+
+    def __init__(self, buf, offset, parent):
+        """
+        Constructor.
+        Arguments:
+        - `buf`: Byte string containing NTFS INDX file
+        - `offset`: The offset into the buffer at which the block starts.
+        - `parent`: The parent NTATTR_STANDARD_INDEX_HEADER block, which links to this block.
+        """
+        debug("ENTRY at %s." % (hex(offset)))
+        super(NTATTR_STANDARD_INDEX_ENTRY, self).__init__(buf, offset, parent)
+
+        self._size_offset = 0x08
+
+        self._created_time_offset = 0x18
+        self._modified_time_offset = 0x20
+        self._changed_time_offset = 0x28
+        self._accessed_time_offset = 0x30
+
+        self._physical_size_offset = 0x38
+        self._logical_size_offset = 0x40
+
+        self._filename_length_offset = 0x50      
+        self._filename_type_offset = 0x51
+        self._filename_offset = 0x52
+
 
 class NTATTR_STANDARD_INDEX_ENTRY(Block):
 # 0x0    LONGLONG mftReference;
