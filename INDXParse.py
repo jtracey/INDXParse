@@ -379,8 +379,8 @@ class NTATTR_SDH_INDEX_ENTRY(Block):
 
 # 0x18  DWORD           SecurityDescriptorHashData;
 # 0x1C  DWORD           SecurityIDData;
-# 0x20  LONGLONG        SDSSecurityDescriptorOffset
-# 0x28  unsigned        SDSSecurityDescriptorSize
+# 0x20  LONGLONG        SDSSecurityDescriptorOffset;
+# 0x28  unsigned        SDSSecurityDescriptorSize;
 # 0x2C  padding ending in 4 bytes of unicode: "II"
 
     def __init__(self, buf, offset, parent):
@@ -392,21 +392,16 @@ class NTATTR_SDH_INDEX_ENTRY(Block):
         - `parent`: The parent NTATTR_STANDARD_INDEX_HEADER block, which links to this block.
         """
         debug("ENTRY at %s." % (hex(offset)))
-        super(NTATTR_STANDARD_INDEX_ENTRY, self).__init__(buf, offset, parent)
+        super(NTATTR_SDH_INDEX_ENTRY, self).__init__(buf, offset, parent)
 
         self._size_offset = 0x08
 
-        self._created_time_offset = 0x18
-        self._modified_time_offset = 0x20
-        self._changed_time_offset = 0x28
-        self._accessed_time_offset = 0x30
-
-        self._physical_size_offset = 0x38
-        self._logical_size_offset = 0x40
-
-        self._filename_length_offset = 0x50      
-        self._filename_type_offset = 0x51
-        self._filename_offset = 0x52
+        self._security_descriptor_hash_key_offset = 0x10
+        self._security_ID_key_offset = 0x14
+        self._security_descriptor_hash_data_offset = 0x18
+        self._security_ID_data_offset = 0x1C
+        self._sds_security_descriptor_offset_offset = 0x20
+        self._sds_security_descriptor_size_offset = 0x28
 
 
 class NTATTR_STANDARD_INDEX_ENTRY(Block):
