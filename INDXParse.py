@@ -308,7 +308,12 @@ class NTATTR_STANDARD_INDEX_HEADER(Block):
 
         e = NTATTR_SDH_INDEX_ENTRY(self._buf, self.entry_offset(), self)
         yield e #FIXME
-
+        
+        while e.has_next():
+            debug("Entry has another entry after it.")
+            e = e.next()
+            yield e
+            
     def entries_of_directory(self):
         """
         A generator that returns each INDX entry associated with this header.
@@ -403,6 +408,33 @@ class NTATTR_SDH_INDEX_ENTRY(Block):
         self._sds_security_descriptor_offset_offset = 0x20
         self._sds_security_descriptor_size_offset = 0x28
 
+    def size(self):
+        return self.unpack_word(self._size_offset)
+
+    def end_offset(self):
+        size = self.size()
+        if size > 0:
+            return self.offset() + size
+        
+    def has_next(self):
+        return self.end_offset() - self.parent().offset() <= self.parent().entry_size()
+    
+    def next(self):
+        """
+        return the next entry after this one.
+        warning, this does not check to see if another exists, but blindly creates one
+        from the next data in the buffer. check NTATTR_STANDARD_INDEX_ENTRY.has_next() first
+        """
+        assert self.has_next()
+        return NTATTR_SDH_INDEX_ENTRY(self._buf, self.end_offset(), self.parent())
+
+    def security_descriptor_offset(self):
+        return self.unpack_qword(self._sds_security_descriptor_offset_offset)
+
+    def security_ID_data(self):
+        return self.unpack_dword(self._security_ID_data_offset)
+    
+
 
 class NTATTR_STANDARD_INDEX_ENTRY(Block):
 # 0x0    LONGLONG mftReference;
@@ -463,6 +495,7 @@ class NTATTR_STANDARD_INDEX_ENTRY(Block):
         """
         return the first address not a part of this block
         """
+        #AJN WTF?  TODO
         size = self.unpack_word(self._size_offset)
         if size > 0:
             return self.offset() + size
@@ -583,6 +616,9 @@ def entry_csv(entry, filename=False):
                                                   entry.accessed_time_safe(), entry.changed_time_safe(),
                                                   entry.created_time_safe())
 
+def entry_sec_csv(entry):
+    return "%i\t%i\t%i" % (entry.size(), entry.security_descriptor_offset(), entry.security_ID_data())
+
 def entry_bodyfile(entry, filename=False):
     if filename:
         fn = filename
@@ -637,10 +673,10 @@ if __name__ == '__main__':
     off = 0
     while off < len(b):
         h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
-        for e in h.entries_of_directory():
+        for e in h.entries_of_security_index():
             if do_csv:
                 try:
-                    print entry_csv(e)
+                    print entry_sec_csv(e)
                 except UnicodeEncodeError:
                     print entry_csv(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
             elif results.bodyfile:
