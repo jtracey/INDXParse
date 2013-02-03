@@ -617,7 +617,7 @@ def entry_csv(entry, filename=False):
                                                   entry.created_time_safe())
 
 def entry_sec_csv(entry):
-    return "%i\t%i\t%i" % (entry.size(), entry.security_descriptor_offset(), entry.security_ID_data())
+    return "%d\t%d\t%d" % (entry.size(), entry.security_descriptor_offset(), entry.security_ID_data())
 
 def entry_bodyfile(entry, filename=False):
     if filename:
