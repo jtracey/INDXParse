@@ -429,6 +429,8 @@ class NTATTR_SDH_INDEX_ENTRY(Block):
         self._sds_security_descriptor_offset_offset = 0x20
         self._sds_security_descriptor_size_offset = 0x28
 
+        #TODO assert magic number
+
     def size(self):
         return self.unpack_word(self._size_offset)
 
@@ -497,7 +499,13 @@ class NTATTR_SII_INDEX_ENTRY(Block):
         debug("ENTRY at %s." % (hex(offset)))
         super(NTATTR_SII_INDEX_ENTRY, self).__init__(buf, offset, parent)
 
+        self._offset_to_data_offset = 0x00
+        self._size_of_data_offset = 0x02
+        self._internal_padding_offset = 0x04
         self._size_offset = 0x08
+        self._key_size_offset = 0x0A
+        self._flags_offset = 0x0C
+        self._internal_padding2_offset = 0x0E
 
         self._security_ID_key_offset = 0x10
         self._security_descriptor_hash_data_offset = 0x14
@@ -505,8 +513,26 @@ class NTATTR_SII_INDEX_ENTRY(Block):
         self._sds_security_descriptor_offset_offset = 0x1C
         self._sds_security_descriptor_size_offset = 0x24
 
+    def offset_to_data(self):
+        return self.unpack_word(self._offset_to_data_offset)
+
+    def size_of_data(self):
+        return self.unpack_word(self._size_of_data_offset)
+
+    def internal_padding1(self):
+        return self.unpack_dword(self._internal_padding_offset)
+    
     def size(self):
         return self.unpack_word(self._size_offset)
+
+    def key_size(self):
+        return self.unpack_word(self._key_size_offset)
+
+    def flags(self):
+        return self.unpack_word(self._flags_offset)
+
+    def internal_padding2(self):
+        return self.unpack_word(self._internal_padding2_offset)
 
     def end_offset(self):
         size = self.size()
@@ -726,7 +752,8 @@ def entry_sec_csv(entry):
                            entry.security_descriptor_size())
 
 def entry_SII_csv(entry):
-    return "%d\t%d\t%d\t%d\t%d" % (entry.security_descriptor_hash_data(),
+    return "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d" % (entry.offset_to_data(), entry.size_of_data(), entry.internal_padding1(), entry.size(),
+                                   entry.key_size(), entry.flags(), entry.internal_padding2(), entry.security_descriptor_hash_data(),
                            entry.security_ID_key(), entry.security_ID_data(), entry.security_descriptor_offset(),
                            entry.security_descriptor_size())
 
@@ -775,12 +802,12 @@ if __name__ == '__main__':
     do_csv = results.csv or \
         (not results.csv and not results.bodyfile)
 
-    if do_csv and not results.sdh:
+    if do_csv and results.sdh:
         #print "FILENAME,\tPHYSICAL SIZE,\tLOGICAL SIZE,\tMODIFIED TIME,\tACCESSED TIME,\tCHANGED TIME,\tCREATED TIME"
         print "SDH DATA\tSECURITY ID KEY\tSECURITY ID DATA\tSDS SECURITY DESCRIPTOR OFFSET\tSDS SECURITY DESCRIPTOR SIZE"
 
-    if do_csv and results.sdh:
-        print "SDH KEY\tSDH DATA\tSECURITY ID KEY\tSECURITY ID DATA\tSDS SECURITY DESCRIPTOR OFFSET\tSDS SECURITY DESCRIPTOR SIZE"
+    if do_csv and not results.sdh:
+        print "DATA OFFSET\tDATA SIZE\tINTERNAL PADDING 1\tSIZE\tKEY SIZE\tFLAGS\tINTERNAL PADDING2\tSDH DATA\tSECURITY ID KEY\tSECURITY ID DATA\tSDS SECURITY DESCRIPTOR OFFSET\tSDS SECURITY DESCRIPTOR SIZE"
 
     with open(results.filename, "rb") as f:
         b = array.array("B", f.read())
