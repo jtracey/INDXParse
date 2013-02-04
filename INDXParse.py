@@ -301,18 +301,23 @@ class NTATTR_STANDARD_INDEX_HEADER(Block):
     def entry_allocated_size(self):
         return self.unpack_dword(0x20)
 
+        # Woohoo code duplication!
     def entries_of_security_index(self):
         """
         A generator for INDX blocks of a security index file.
         """
+        if self.entry_offset() - self.offset()  >= self.entry_size():
+            debug("No entries in this allocation block.")
+            return 
 
         e = NTATTR_SDH_INDEX_ENTRY(self._buf, self.entry_offset(), self)
-        yield e #FIXME
-        
+        yield e
+
         while e.has_next():
             debug("Entry has another entry after it.")
             e = e.next()
             yield e
+        debug("No more entries.")
             
     def entries_of_directory(self):
         """
@@ -654,6 +659,7 @@ if __name__ == '__main__':
     group.add_argument('-b', action="store_true", dest="bodyfile", default=False, help="Output Bodyfile")
     parser.add_argument('-d', action="store_true", dest="deleted", help="Find entries in slack space")
     parser.add_argument('-v', action="store_true", dest="verbose", help="Print debugging information")
+    parser.add_argument('-s', action="store_true", dest="sdh", help="Parse SDH entries instead of directory entries")
     parser.add_argument('filename', action="store", help="Input INDX file path")
     results = parser.parse_args()
 
@@ -663,27 +669,44 @@ if __name__ == '__main__':
     do_csv = results.csv or \
         (not results.csv and not results.bodyfile)
 
-    if do_csv:
+    if do_csv and not results.sdh:
         print "FILENAME,\tPHYSICAL SIZE,\tLOGICAL SIZE,\tMODIFIED TIME,\tACCESSED TIME,\tCHANGED TIME,\tCREATED TIME"
 
-    
+    if do_csv and results.sdh:
+        print "SECURITY DESCRIPTOR HASH KEY, \tSECURITY ID KEY, \tSECURITY DESCRIPTOR HASH DATA, \tSECURITY ID DATA, \tSDS SECURITY DESCRIPTOR OFFSET, \tSDS SECURITY DESCRIPTOR SIZE"
+
     with open(results.filename, "rb") as f:
         b = array.array("B", f.read())
 
     off = 0
     while off < len(b):
-        h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
-        for e in h.entries_of_security_index():
-            if do_csv:
-                try:
-                    print entry_sec_csv(e)
-                except UnicodeEncodeError:
-                    print entry_csv(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
-            elif results.bodyfile:
-                try:
-                    print entry_bodyfile(e)
-                except UnicodeEncodeError:
-                    print entry_bodyfile(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
+        if results.sdh:
+            h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
+            for e in h.entries_of_security_index():
+                if do_csv:
+                    try:
+                        print entry_sec_csv(e)
+                    except UnicodeEncodeError:
+                        print entry_csv(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
+                elif results.bodyfile:
+                    try:
+                        print entry_bodyfile(e)
+                    except UnicodeEncodeError:
+                        print entry_bodyfile(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
+        if not results.sdh:
+            h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
+            for e in h.entries_of_directory():
+                if do_csv:
+                    try:
+                        print entry_csv(e)
+                    except UnicodeEncodeError:
+                        print entry_csv(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
+                elif results.bodyfile:
+                    try:
+                        print entry_bodyfile(e)
+                    except UnicodeEncodeError:
+                        print entry_bodyfile(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
+
         if results.deleted:
             for e in h.deleted_entries():
                 fn = e.filename() + " (slack at %s)" % (hex(e.offset()))
