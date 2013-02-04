@@ -374,7 +374,6 @@ class NTATTR_STANDARD_INDEX_HEADER(Block):
 class NTATTR_SDH_INDEX_ENTRY(Block):
 #Security Descriptor Hash ($SDH) Index
 # values accodring to NTFSdoc
-# empirically, these offsets should all have 0x40 added to them
 
 # 0x00  unsigned short  offsetToData=0x18;
 # 0x02  unsigned short  sizeOfData=0x14;
@@ -433,13 +432,23 @@ class NTATTR_SDH_INDEX_ENTRY(Block):
         assert self.has_next()
         return NTATTR_SDH_INDEX_ENTRY(self._buf, self.end_offset(), self.parent())
 
-    def security_descriptor_offset(self):
-        return self.unpack_qword(self._sds_security_descriptor_offset_offset)
+    def security_descriptor_hash_key(self):
+        return self.unpack_dword(self._security_descriptor_hash_key_offset)
+
+    def security_ID_key(self):
+        return self.unpack_dword(self._security_ID_key_offset)
+
+    def security_descriptor_hash_data(self):
+        return self.unpack_dword(self._security_descriptor_hash_data_offset)
 
     def security_ID_data(self):
         return self.unpack_dword(self._security_ID_data_offset)
     
+    def security_descriptor_offset(self):
+        return self.unpack_qword(self._sds_security_descriptor_offset_offset)
 
+    def security_descriptor_size(self):
+        return self.unpack_dword(self._sds_security_descriptor_size_offset)
 
 class NTATTR_STANDARD_INDEX_ENTRY(Block):
 # 0x0    LONGLONG mftReference;
@@ -622,7 +631,9 @@ def entry_csv(entry, filename=False):
                                                   entry.created_time_safe())
 
 def entry_sec_csv(entry):
-    return "%d\t%d\t%d" % (entry.size(), entry.security_descriptor_offset(), entry.security_ID_data())
+    return "%d\t%d\t%d\t%d\t%d\t%d" % (entry.security_descriptor_hash_key(), entry.security_descriptor_hash_data(),
+                           entry.security_ID_key(), entry.security_ID_data(), entry.security_descriptor_offset(),
+                           entry.security_descriptor_size())
 
 def entry_bodyfile(entry, filename=False):
     if filename:
@@ -673,7 +684,7 @@ if __name__ == '__main__':
         print "FILENAME,\tPHYSICAL SIZE,\tLOGICAL SIZE,\tMODIFIED TIME,\tACCESSED TIME,\tCHANGED TIME,\tCREATED TIME"
 
     if do_csv and results.sdh:
-        print "SECURITY DESCRIPTOR HASH KEY, \tSECURITY ID KEY, \tSECURITY DESCRIPTOR HASH DATA, \tSECURITY ID DATA, \tSDS SECURITY DESCRIPTOR OFFSET, \tSDS SECURITY DESCRIPTOR SIZE"
+        print "SDH KEY\tSDH DATA\tSECURITY ID KEY\tSECURITY ID DATA\tSDS SECURITY DESCRIPTOR OFFSET\tSDS SECURITY DESCRIPTOR SIZE"
 
     with open(results.filename, "rb") as f:
         b = array.array("B", f.read())
