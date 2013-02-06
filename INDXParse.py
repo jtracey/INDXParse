@@ -821,18 +821,16 @@ if __name__ == '__main__':
 
     off = 0
     while off < len(b):
+        h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
         if results.index_type == "sdh":
-            h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
             for e in h.entries_of_security_index():
                 if do_csv:
                     print entry_SDH_csv(e)
         if results.index_type == "sii":
-            h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
             for e in h.entries_of_SII():
                 if do_csv:
                     print entry_SII_csv(e)
         if results.index_type == "file":
-            h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
             for e in h.entries_of_directory():
                 if do_csv:
                     try:
@@ -844,20 +842,20 @@ if __name__ == '__main__':
                         print entry_bodyfile(e)
                     except UnicodeEncodeError:
                         print entry_bodyfile(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
-        if results.deleted:
-            for e in h.deleted_entries():
-                fn = e.filename() + " (slack at %s)" % (hex(e.offset()))
-                bad_fn = e.filename().encode("ascii", "replace") + " (slack at %s)(error decoding filename)" % (hex(e.offset()))
-                if do_csv:
-                    try:
-                        print entry_csv(e, fn)
-                    except UnicodeEncodeError:
-                        print entry_csv(e, bad_fn)
-                elif results.bodyfile:
-                    try:
-                        print entry_bodyfile(e, fn)
-                    except UnicodeEncodeError:
-                        print entry_bodyfile(e, bad_fn)
+            if results.deleted:
+                for e in h.deleted_entries():
+                    fn = e.filename() + " (slack at %s)" % (hex(e.offset()))
+                    bad_fn = e.filename().encode("ascii", "replace") + " (slack at %s)(error decoding filename)" % (hex(e.offset()))
+                    if do_csv:
+                        try:
+                            print entry_csv(e, fn)
+                        except UnicodeEncodeError:
+                            print entry_csv(e, bad_fn)
+                    elif results.bodyfile:
+                        try:
+                            print entry_bodyfile(e, fn)
+                        except UnicodeEncodeError:
+                            print entry_bodyfile(e, bad_fn)
 
         off = align(h.end_offset(), 4096)
 
