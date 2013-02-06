@@ -735,7 +735,7 @@ class NTATTR_STANDARD_INDEX_SLACK_ENTRY(NTATTR_STANDARD_INDEX_ENTRY):
                 self.changed_time_safe() > recent_date and \
                 self.created_time_safe() > recent_date
 
-def entry_csv(entry, filename=False):
+def entry_file_csv(entry, filename=False):
     if filename:
         fn = filename
     else:
@@ -746,14 +746,17 @@ def entry_csv(entry, filename=False):
                                                   entry.accessed_time_safe(), entry.changed_time_safe(),
                                                   entry.created_time_safe())
 
-def entry_sec_csv(entry):
+def entry_SDH_csv(entry):
     return "%d\t%d\t%d\t%d\t%d\t%d" % (entry.security_descriptor_hash_key(), entry.security_descriptor_hash_data(),
                            entry.security_ID_key(), entry.security_ID_data(), entry.security_descriptor_offset(),
                            entry.security_descriptor_size())
 
 def entry_SII_csv(entry):
-    return "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d" % (entry.offset_to_data(), entry.size_of_data(), entry.internal_padding1(), entry.size(),
-                                   entry.key_size(), entry.flags(), entry.internal_padding2(), entry.security_descriptor_hash_data(),
+##    return "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d" % (entry.offset_to_data(), entry.size_of_data(), entry.internal_padding1(), entry.size(),
+##                                   entry.key_size(), entry.flags(), entry.internal_padding2(), entry.security_descriptor_hash_data(),
+##                           entry.security_ID_key(), entry.security_ID_data(), entry.security_descriptor_offset(),
+##                           entry.security_descriptor_size())
+    return "%d\t%d\t%d\t%d\t%d" % (entry.security_descriptor_hash_data(),
                            entry.security_ID_key(), entry.security_ID_data(), entry.security_descriptor_offset(),
                            entry.security_descriptor_size())
 
@@ -792,7 +795,7 @@ if __name__ == '__main__':
     group.add_argument('-b', action="store_true", dest="bodyfile", default=False, help="Output Bodyfile")
     parser.add_argument('-d', action="store_true", dest="deleted", help="Find entries in slack space")
     parser.add_argument('-v', action="store_true", dest="verbose", help="Print debugging information")
-    parser.add_argument('-s', action="store_true", dest="sdh", help="Parse SDH entries instead of directory entries")
+    parser.add_argument('-t', action="store", choices=[ "file", "sdh", "sii"], default="file", dest="index_type", help="Choose index type (file, sdh, or sii)")
     parser.add_argument('filename', action="store", help="Input INDX file path")
     results = parser.parse_args()
 
@@ -802,45 +805,45 @@ if __name__ == '__main__':
     do_csv = results.csv or \
         (not results.csv and not results.bodyfile)
 
-    if do_csv and results.sdh:
-        #print "FILENAME,\tPHYSICAL SIZE,\tLOGICAL SIZE,\tMODIFIED TIME,\tACCESSED TIME,\tCHANGED TIME,\tCREATED TIME"
-        print "SDH DATA\tSECURITY ID KEY\tSECURITY ID DATA\tSDS SECURITY DESCRIPTOR OFFSET\tSDS SECURITY DESCRIPTOR SIZE"
-
-    if do_csv and not results.sdh:
-        print "DATA OFFSET\tDATA SIZE\tINTERNAL PADDING 1\tSIZE\tKEY SIZE\tFLAGS\tINTERNAL PADDING2\tSDH DATA\tSECURITY ID KEY\tSECURITY ID DATA\tSDS SECURITY DESCRIPTOR OFFSET\tSDS SECURITY DESCRIPTOR SIZE"
+    if do_csv:
+        if results.index_type == "file":
+            print "FILENAME,\tPHYSICAL SIZE,\tLOGICAL SIZE,\tMODIFIED TIME,\tACCESSED TIME,\tCHANGED TIME,\tCREATED TIME"
+        if results.index_type == "sdh":
+            print "SDH KEY\tSDH DATA\tSECURITY ID KEY\tSECURITY ID DATA\tSDS SECURITY DESCRIPTOR OFFSET\tSDS SECURITY DESCRIPTOR SIZE"
+        if results.index_type == "sii":
+            #if verbose: print "DATA OFFSET\tDATA SIZE\tINTERNAL PADDING 1\tSIZE\tKEY SIZE\tFLAGS\tINTERNAL PADDING2\tSDH DATA\tSECURITY ID KEY\tSECURITY ID DATA\tSDS SECURITY DESCRIPTOR OFFSET\tSDS SECURITY DESCRIPTOR SIZE"
+            #else:
+            ## useful for debugging, but outputs a differently formatted tsv so I'm leaving it out
+            print "SDH DATA\tSECURITY ID KEY\tSECURITY ID DATA\tSDS SECURITY DESCRIPTOR OFFSET\tSDS SECURITY DESCRIPTOR SIZE"
 
     with open(results.filename, "rb") as f:
         b = array.array("B", f.read())
 
     off = 0
     while off < len(b):
-        if results.sdh:
+        if results.index_type == "sdh":
             h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
             for e in h.entries_of_security_index():
                 if do_csv:
-                    try:
-                        print entry_sec_csv(e)
-                    except UnicodeEncodeError:
-                        print entry_csv(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
-                elif results.bodyfile:
-                    try:
-                        print entry_bodyfile(e)
-                    except UnicodeEncodeError:
-                        print entry_bodyfile(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
-        if not results.sdh:
+                    print entry_SDH_csv(e)
+        if results.index_type == "sii":
             h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
             for e in h.entries_of_SII():
                 if do_csv:
+                    print entry_SII_csv(e)
+        if results.index_type == "file":
+            h = NTATTR_STANDARD_INDEX_HEADER(b, off, False)
+            for e in h.entries_of_directory():
+                if do_csv:
                     try:
-                        print entry_SII_csv(e)
+                        print entry_file_csv(e)
                     except UnicodeEncodeError:
-                        print entry_csv(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
+                        print entry__file_csv(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
                 elif results.bodyfile:
                     try:
                         print entry_bodyfile(e)
                     except UnicodeEncodeError:
                         print entry_bodyfile(e, e.filename().encode("ascii", "replace") + " (error decoding filename)")
-
         if results.deleted:
             for e in h.deleted_entries():
                 fn = e.filename() + " (slack at %s)" % (hex(e.offset()))
